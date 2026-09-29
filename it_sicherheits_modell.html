@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="de" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IT-Sicherheit: Konzeptmodell & Simulator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            notion: {
+              bg: '#FFFFFF',
+              darkBg: '#191919',
+              sidebar: '#F7F6F3',
+              darkSidebar: '#202020',
+              border: '#E9E9E7',
+              darkBorder: '#2F2F2F',
+              hover: '#EFEFED',
+              darkHover: '#2A2A2A',
+              text: '#37352F',
+              darkText: '#D4D4D4'
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Inter', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom styling for clean SVG arrows and smooth transitions */
+    .node-transition {
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .edge-line {
+      transition: stroke 0.3s, stroke-width 0.3s, stroke-dashoffset 0.5s;
+    }
+    .pulse-glow {
+      animation: pulseGlow 2s infinite ease-in-out;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.4)); }
+      50% { filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.8)); }
+    }
+    /* Scrollbar styling for notion feel */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(150, 150, 150, 0.3);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-notion-bg dark:bg-notion-darkBg text-notion-text dark:text-notion-darkText antialiased h-full flex flex-col font-sans selection:bg-blue-100 dark:selection:bg-blue-900 transition-colors duration-200">
+
+  <header class="border-b border-notion-border dark:border-notion-darkBorder px-4 py-3 bg-white/80 dark:bg-notion-darkBg/80 backdrop-blur sticky top-0 z-40 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg shadow-sm">
+        🛡️
+      </div>
+      <div>
+        <h1 class="text-base font-semibold leading-none flex items-center gap-2">
+          IT-Sicherheits-Beziehungsmodell
+          <span class="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-normal">Interaktiv</span>
+        </h1>
+        <p class="text-xs text-stone-500 dark:text-stone-400 mt-0.5 hidden sm:block">Zusammenhänge von Bedrohungen, Schwachstellen, Risiken und Schutzkonzepten</p>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs & Actions -->
+    <div class="flex items-center gap-2">
+      <div class="flex bg-stone-100 dark:bg-notion-darkSidebar p-0.5 rounded-lg text-xs font-medium border border-notion-border dark:border-notion-darkBorder">
+        <button id="tab-graph-btn" onclick="switchTab('graph')" class="px-3 py-1.5 rounded-md transition-all bg-white dark:bg-notion-darkHover shadow-sm text-stone-900 dark:text-stone-100 font-semibold">
+          🕸️ Graph & Simulator
+        </button>
+        <button id="tab-game-btn" onclick="switchTab('game')" class="px-3 py-1.5 rounded-md transition-all text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100">
+          🎮 Quiz & Zuordnung
+        </button>
+      </div>
+
+      <!-- Notion Embed Guide Modal Toggle -->
+      <button onclick="toggleModal('notion-modal', true)" title="In Notion einbinden" class="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-notion-darkHover text-stone-600 dark:text-stone-300 border border-notion-border dark:border-notion-darkBorder text-xs flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.904c0 .747.373 1.027 1.213.98l14.523-.84c.84-.046.933-.56.933-1.166V6.354c0-.606-.233-.933-.746-.887l-15.176.933c-.56.047-.747.373-.747.888zm13.682.747c.093.42 0 .84-.42.887l-.98.187v10.311c-.56.326-1.12.513-1.633.513-.84 0-1.073-.28-1.727-.98l-5.04-7.886v7.326l1.493.327c.42.093.466.513.466.746v.093l-3.64.233c-.092-.42 0-.84.42-.887l1.027-.187V9.754L9.42 9.567c-.42-.093-.466-.513-.466-.746v-.093l3.687-.233 5.413 8.353V9.567l-1.26-.233c-.42-.093-.466-.513-.466-.746v-.093l3.453-.233z"/></svg>
+        <span class="hidden md:inline">Notion Embed</span>
+      </button>
+
+      <!-- Theme Switcher -->
+      <button onclick="toggleDarkMode()" class="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-notion-darkHover text-stone-600 dark:text-stone-300 border border-notion-border dark:border-notion-darkBorder" title="Dark / Light Mode">
+        <span class="dark:hidden">🌙</span>
+        <span class="hidden dark:inline">☀️</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="flex-1 overflow-hidden relative">
+
+    <!-- ============================================ -->
+    <!-- TAB 1: GRAPH & SIMULATOR                     -->
+    <!-- ============================================ -->
+    <div id="tab-graph" class="h-full flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
+      
+      <!-- Graph Canvas Container -->
+      <div class="flex-1 flex flex-col min-h-[520px] lg:min-h-0 bg-[#FAFAFA] dark:bg-[#141414] relative border-b lg:border-b-0 lg:border-r border-notion-border dark:border-notion-darkBorder">
+        
+        <!-- Graph Overlay Controls -->
+        <div class="absolute top-3 left-3 z-20 flex flex-wrap gap-2 items-center bg-white/90 dark:bg-stone-900/90 p-1.5 rounded-lg border border-notion-border dark:border-notion-darkBorder text-xs shadow-sm backdrop-blur">
+          <span class="text-stone-500 font-medium px-1">Fokus:</span>
+          <button onclick="highlightFilter('all')" class="filter-btn active px-2.5 py-1 rounded bg-stone-200 dark:bg-stone-800 font-medium">Alle</button>
+          <button onclick="highlightFilter('angriff')" class="filter-btn px-2.5 py-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800">Angriffsseite</button>
+          <button onclick="highlightFilter('abwehr')" class="filter-btn px-2.5 py-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800">Abwehr & Schutz</button>
+          <button onclick="resetGraphSelection()" class="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 ml-1 px-1.5 py-1" title="Auswahl aufheben">↺ Reset</button>
+        </div>
+
+        <div class="absolute top-3 right-3 z-20 text-[11px] text-stone-500 dark:text-stone-400 bg-white/80 dark:bg-stone-900/80 px-2.5 py-1 rounded-md border border-notion-border dark:border-notion-darkBorder pointer-events-none hidden sm:block">
+          Tipp: Klicke auf Knoten oder Pfeile für Details
+        </div>
+
+        <!-- SVG Visualizer -->
+        <div class="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center p-2">
+          <svg id="concept-svg" viewBox="0 0 950 620" class="w-full h-full max-h-[640px] select-none">
+            <defs>
+              <!-- Arrowhead markers -->
+              <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#888888" id="arrow-head-default"/>
+              </marker>
+              <marker id="arrow-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#3B82F6"/>
+              </marker>
+              <marker id="arrow-danger" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#EF4444"/>
+              </marker>
+              <marker id="arrow-success" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#10B981"/>
+              </marker>
+            </defs>
+
+            <!-- CONNECTIONS (EDGES) -->
+            <g id="edges-layer">
+              <!-- Bedrohung -> Schwachstellen (nutzt aus) -->
+              <path id="edge-bedrohung-schwachstellen" d="M 285 100 L 600 100" class="edge-line" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arrow)" fill="none"/>
+              <text class="edge-text" x="442" y="90" text-anchor="middle" font-size="12" fill="#6B7280" font-weight="500">nutzt aus</text>
+
+              <!-- Bedrohung -> Risiken (erhöhen) -->
+              <path id="edge-bedrohung-risiken" d="M 270 145 L 435 285" class="edge-line" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arrow)" fill="none"/>
+              <text class="edge-text" x="325" y="200" text-anchor="middle" font-size="12" fill="#6B7280" font-weight="500">erhöhen</text>
+
+              <!-- Schwachstellen -> Risiken (erhöhen) -->
+              <path id="edge-schwachstellen-risiken" d="M 640 145 L 525 285" class="edge-line" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arrow)" fill="none"/>
+              <text class="edge-text" x="610" y="200" text-anchor="middle" font-size="12" fill="#6B7280" font-weight="500">erhöhen</text>
+
+              <!-- Schwachstellen -> Assets (bedrohen) -->
+              <path id="edge-schwachstellen-assets" d="M 720 145 L 750 280" class="edge-line" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arrow)" fill="none"/>
+              <text class="edge-text" x="770" y="215" text-anchor="start" font-size="12" fill="#6B7280" font-weight="500">bedrohen</text>
+
+              <!-- Assets -> Werte/Auswirkungen (haben) -->
+              <path id="edge-assets-werte" d="M 760 365 L 760 480" class="edge-line" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arrow)" fill="none"/>
+              <text class="edge-text" x="775" y="425" text-anchor="start" font-size="12" fill="#6B7280" font-weight="500">haben</text>
+
+              <!-- Risiken -> Werte/Auswirkungen (bedrohen) -->
+              <path id="edge-risiken-werte" d="M 545 350 L 670 480" class="edge-line" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arrow)" fill="none"/>
+              <text class="edge-text" x="610" y="405" text-anchor="middle" font-size="12" fill="#6B7280" font-weight="500">bedrohen</text>
+
+              <!-- Risiken -> Schutzziele (induzieren) -->
+              <path id="edge-risiken-schutzziele" d="M 435 345 L 350 480" class="edge-line" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arrow)" fill="none"/>
+              <text class="edge-text" x="355" y="405" text-anchor="middle" font-size="12" fill="#6B7280" font-weight="500">induzieren</text>
+
+              <!-- Schutzziele -> Schutzkonzepte (erfüllt durch) -->
+              <path id="edge-schutzziele-schutzkonzepte" d="M 235 480 L 195 365" class="edge-line" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arrow)" fill="none"/>
+              <text class="edge-text" x="180" y="425" text-anchor="end" font-size="12" fill="#6B7280" font-weight="500">erfüllt durch</text>
+
+              <!-- Schutzkonzepte -> Bedrohung (schützen gegen) -->
+              <path id="edge-schutzkonzepte-bedrohung" d="M 175 285 L 205 145" class="edge-line" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arrow)" fill="none"/>
+              <text class="edge-text" x="145" y="215" text-anchor="end" font-size="12" fill="#6B7280" font-weight="500">schützen gegen</text>
+
+              <!-- Schutzkonzepte -> Risiken (schützen gegen) -->
+              <path id="edge-schutzkonzepte-risiken" d="M 285 320 L 415 320" class="edge-line" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arrow)" fill="none"/>
+              <text class="edge-text" x="350" y="312" text-anchor="middle" font-size="11" fill="#6B7280" font-weight="500">schützen gegen</text>
+            </g>
+
+            <!-- NODES (BOXES) -->
+            <g id="nodes-layer">
+              <!-- Bedrohung, Angriff -->
+              <g id="node-bedrohung" class="cursor-pointer node-transition" onclick="selectNode('bedrohung')">
+                <rect x="130" y="55" width="165" height="85" rx="6" fill="#FFFFFF" class="dark:fill-stone-900" stroke="#EF4444" stroke-width="2"/>
+                <text x="212" y="88" text-anchor="middle" font-size="14" font-weight="700" fill="#EF4444">Bedrohung,</text>
+                <text x="212" y="112" text-anchor="middle" font-size="14" font-weight="700" fill="#EF4444">Angriff</text>
+                <circle cx="270" cy="72" r="4" fill="#EF4444"/>
+              </g>
+
+              <!-- Schwachstellen, Verwundbarkeiten -->
+              <g id="node-schwachstellen" class="cursor-pointer node-transition" onclick="selectNode('schwachstellen')">
+                <rect x="600" y="55" width="220" height="85" rx="6" fill="#FFFFFF" class="dark:fill-stone-900" stroke="#F59E0B" stroke-width="2"/>
+                <text x="710" y="88" text-anchor="middle" font-size="14" font-weight="700" fill="#F59E0B">Schwachstellen,</text>
+                <text x="710" y="112" text-anchor="middle" font-size="14" font-weight="700" fill="#F59E0B">Verwundbarkeiten</text>
+              </g>
+
+              <!-- Risiken (Central Node) -->
+              <g id="node-risiken" class="cursor-pointer node-transition" onclick="selectNode('risiken')">
+                <rect x="420" y="275" width="130" height="85" rx="6" fill="#FFFFFF" class="dark:fill-stone-900" stroke="#DC2626" stroke-width="2.5"/>
+                <text x="485" y="325" text-anchor="middle" font-size="16" font-weight="800" fill="#DC2626">Risiken</text>
+              </g>
+
+              <!-- Assets -->
+              <g id="node-assets" class="cursor-pointer node-transition" onclick="selectNode('assets')">
+                <rect x="695" y="280" width="125" height="80" rx="6" fill="#FFFFFF" class="dark:fill-stone-900" stroke="#3B82F6" stroke-width="2"/>
+                <text x="757" y="326" text-anchor="middle" font-size="15" font-weight="700" fill="#3B82F6">Assets</text>
+              </g>
+
+              <!-- Schutzkonzepte, Dienste, Protokolle -->
+              <g id="node-schutzkonzepte" class="cursor-pointer node-transition" onclick="selectNode('schutzkonzepte')">
+                <rect x="70" y="275" width="215" height="85" rx="6" fill="#FFFFFF" class="dark:fill-stone-900" stroke="#10B981" stroke-width="2"/>
+                <text x="177" y="308" text-anchor="middle" font-size="13" font-weight="700" fill="#10B981">Schutzkonzepte,</text>
+                <text x="177" y="332" text-anchor="middle" font-size="13" font-weight="700" fill="#10B981">Dienste, Protokolle</text>
+              </g>
+
+              <!-- Schutzziele, Sicherheitspolicy -->
+              <g id="node-schutzziele" class="cursor-pointer node-transition" onclick="selectNode('schutzziele')">
+                <rect x="170" y="475" width="200" height="85" rx="6" fill="#FFFFFF" class="dark:fill-stone-900" stroke="#059669" stroke-width="2"/>
+                <text x="270" y="508" text-anchor="middle" font-size="13" font-weight="700" fill="#059669">Schutzziele,</text>
+                <text x="270" y="532" text-anchor="middle" font-size="13" font-weight="700" fill="#059669">Sicherheitspolicy</text>
+              </g>
+
+              <!-- Werte, Auswirkungen von Angriffen -->
+              <g id="node-werte" class="cursor-pointer node-transition" onclick="selectNode('werte')">
+                <rect x="670" y="475" width="200" height="85" rx="6" fill="#FFFFFF" class="dark:fill-stone-900" stroke="#6366F1" stroke-width="2"/>
+                <text x="770" y="508" text-anchor="middle" font-size="13" font-weight="700" fill="#6366F1">Werte,</text>
+                <text x="770" y="532" text-anchor="middle" font-size="13" font-weight="700" fill="#6366F1">Auswirkungen v. Angriffen</text>
+              </g>
+            </g>
+          </svg>
+        </div>
+
+        <!-- Simulator Bottom Bar -->
+        <div class="border-t border-notion-border dark:border-notion-darkBorder p-3 sm:p-4 bg-white dark:bg-notion-darkSidebar">
+          <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="w-full md:w-auto">
+              <span class="text-xs uppercase tracking-wider font-bold text-stone-400 dark:text-stone-500">Live-Simulator</span>
+              <p class="text-xs text-stone-600 dark:text-stone-300">Passe Bedrohung und Abwehr an, um das Restrisiko zu berechnen:</p>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full md:w-2/3">
+              <!-- Slider 1: Bedrohung -->
+              <div class="space-y-1">
+                <div class="flex justify-between text-xs">
+                  <span class="text-red-600 font-medium">⚡ Bedrohungsintensität:</span>
+                  <span id="threat-val" class="font-mono">50%</span>
+                </div>
+                <input id="slider-threat" type="range" min="0" max="100" value="50" oninput="updateSimulation()" class="w-full h-1.5 bg-stone-200 dark:bg-stone-700 rounded-lg appearance-none cursor-pointer accent-red-500">
+              </div>
+
+              <!-- Slider 2: Schwachstellen -->
+              <div class="space-y-1">
+                <div class="flex justify-between text-xs">
+                  <span class="text-amber-600 font-medium">🔓 Schwachstellen:</span>
+                  <span id="vuln-val" class="font-mono">60%</span>
+                </div>
+                <input id="slider-vuln" type="range" min="0" max="100" value="60" oninput="updateSimulation()" class="w-full h-1.5 bg-stone-200 dark:bg-stone-700 rounded-lg appearance-none cursor-pointer accent-amber-500">
+              </div>
+
+              <!-- Slider 3: Schutzkonzepte -->
+              <div class="space-y-1">
+                <div class="flex justify-between text-xs">
+                  <span class="text-emerald-600 font-medium">🛡️ Schutzmaßnahmen:</span>
+                  <span id="defense-val" class="font-mono">40%</span>
+                </div>
+                <input id="slider-defense" type="range" min="0" max="100" value="40" oninput="updateSimulation()" class="w-full h-1.5 bg-stone-200 dark:bg-stone-700 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+              </div>
+            </div>
+
+            <!-- Risk Result Badge -->
+            <div class="flex items-center gap-3 w-full md:w-auto justify-end border-t md:border-t-0 pt-2 md:pt-0 border-stone-200 dark:border-stone-800">
+              <div class="text-right">
+                <div class="text-[10px] uppercase text-stone-400">Errechnetes Risiko</div>
+                <div id="risk-label" class="text-sm font-bold text-red-600">Hoch</div>
+              </div>
+              <div id="risk-indicator" class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs bg-red-100 text-red-700 border-2 border-red-500">
+                70%
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div id="node-inspector" class="w-full lg:w-80 xl:w-96 p-4 sm:p-6 bg-white dark:bg-notion-darkSidebar flex flex-col justify-between overflow-y-auto">
+        <div id="inspector-content">
+          <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 mb-3" id="insp-tag">
+            Komponente auswählen
+          </div>
+          <h2 id="insp-title" class="text-xl font-bold tracking-tight text-stone-900 dark:text-white">
+            IT-Sicherheits-Modell
+          </h2>
+          <p id="insp-desc" class="text-sm text-stone-600 dark:text-stone-300 mt-2 leading-relaxed">
+            Dieses Modell visualisiert, wie Bedrohungen über Schwachstellen auf Assets einwirken und welches Restrisiko entsteht. Wählen Sie ein Element im Diagramm aus, um detaillierte Erklärungen, Beziehungen und Praxisbeispiele zu sehen.
+          </p>
+
+          <div id="insp-relations" class="mt-5 space-y-3">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-stone-400">Direkte Beziehungen</h3>
+            <ul id="insp-relations-list" class="text-xs space-y-2 text-stone-600 dark:text-stone-400">
+              <li class="flex items-start gap-2">
+                <span class="text-blue-500">●</span> <span>Klicke auf eine Box, um ein- und ausgehende Relationen zu untersuchen.</span>
+              </li>
+            </ul>
+          </div>
+
+          <div id="insp-example" class="mt-5 p-3 rounded-lg bg-stone-50 dark:bg-notion-darkHover border border-notion-border dark:border-notion-darkBorder">
+            <h4 class="text-xs font-bold text-stone-700 dark:text-stone-200 flex items-center gap-1.5">
+              <span>💡</span> Praxis-Beispiel
+            </h4>
+            <p id="insp-example-text" class="text-xs text-stone-600 dark:text-stone-400 mt-1 leading-normal">
+              Ein Hacker (Bedrohung) nutzt ein ungepatchtes VPN-Gateway (Schwachstelle) aus, um die Datenbank (Asset) zu verschlüsseln (Auswirkung).
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-notion-border dark:border-notion-darkBorder text-[11px] text-stone-400 flex justify-between items-center">
+          <span>Kompakt & interaktiv</span>
+          <button onclick="resetGraphSelection()" class="hover:underline text-blue-500">Übersicht zurücksetzen</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ============================================ -->
+    <!-- TAB 2: MINI GAME & QUIZ                      -->
+    <!-- ============================================ -->
+    <div id="tab-game" class="h-full hidden p-4 sm:p-8 overflow-y-auto flex justify-center bg-stone-50 dark:bg-notion-darkBg">
+      <div class="max-w-2xl w-full flex flex-col justify-between my-auto space-y-6">
+
+        <!-- Game Header / Stats -->
+        <div class="bg-white dark:bg-notion-darkSidebar p-4 sm:p-5 rounded-xl border border-notion-border dark:border-notion-darkBorder shadow-sm flex items-center justify-between">
+          <div>
+            <div class="text-xs font-bold text-stone-400 uppercase tracking-wide">Lern-Quiz: IT-Sicherheits-Relatormat</div>
+            <h3 class="text-base sm:text-lg font-bold">Verknüpfe die Konzepte</h3>
+          </div>
+          <div class="flex items-center gap-4 text-center">
+            <div>
+              <span class="text-xs text-stone-400 block">Punkte</span>
+              <span id="game-score" class="text-lg font-mono font-bold text-blue-600 dark:text-blue-400">0</span>
+            </div>
+            <div>
+              <span class="text-xs text-stone-400 block">Streak</span>
+              <span id="game-streak" class="text-lg font-mono font-bold text-amber-500">0 🔥</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Question Card -->
+        <div id="quiz-card" class="bg-white dark:bg-notion-darkSidebar p-6 sm:p-8 rounded-xl border border-notion-border dark:border-notion-darkBorder shadow-sm relative overflow-hidden transition-all">
+          <div class="flex justify-between items-center mb-4">
+            <span id="quiz-level-indicator" class="text-xs font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300">
+              Frage 1 von 6
+            </span>
+            <span id="quiz-badge" class="text-xs text-stone-400">Prüfe dein Modellwissen</span>
+          </div>
+
+          <div class="space-y-4">
+            <!-- Visual formula hint -->
+            <div class="p-4 rounded-lg bg-stone-50 dark:bg-notion-darkHover border border-notion-border dark:border-notion-darkBorder flex items-center justify-center gap-2 sm:gap-4 flex-wrap text-sm sm:text-base font-semibold">
+              <span id="q-source" class="px-3 py-1.5 bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 rounded shadow-sm">Bedrohung</span>
+              <span class="text-stone-400">──▶</span>
+              <span id="q-relation-slot" class="px-3 py-1.5 border-2 border-dashed border-blue-400 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300 rounded font-mono animate-pulse">? Welches Verb ?</span>
+              <span class="text-stone-400">──▶</span>
+              <span id="q-target" class="px-3 py-1.5 bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 rounded shadow-sm">Schwachstellen</span>
+            </div>
+
+            <p id="q-prompt" class="text-sm sm:text-base text-stone-700 dark:text-stone-200 text-center font-medium pt-2">
+              Welche definierte Relation verbindet diese beiden Bausteine im IT-Sicherheitsmodell?
+            </p>
+          </div>
+
+          <!-- Answer Options -->
+          <div id="quiz-options" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
+            <!-- Dynamically populated -->
+          </div>
+
+          <!-- Feedback message -->
+          <div id="quiz-feedback" class="mt-4 p-3 rounded-lg text-xs sm:text-sm font-medium hidden text-center transition-all"></div>
+        </div>
+
+        <!-- Controls -->
+        <div class="flex justify-between items-center">
+          <button onclick="restartQuiz()" class="text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200">
+            ↺ Neu starten
+          </button>
+          <button id="quiz-next-btn" onclick="nextQuestion()" class="hidden px-5 py-2 rounded-lg bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 font-medium text-xs sm:text-sm hover:opacity-90 shadow-sm">
+            Nächste Frage ➔
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <div id="notion-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-notion-darkSidebar max-w-lg w-full rounded-2xl border border-notion-border dark:border-notion-darkBorder p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-bold flex items-center gap-2">
+          <span>📝</span> In Notion einbetten
+        </h3>
+        <button onclick="toggleModal('notion-modal', false)" class="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 text-lg">✕</button>
+      </div>
+
+      <div class="text-xs sm:text-sm text-stone-600 dark:text-stone-300 space-y-3 leading-relaxed">
+        <p>Du kannst diese Anwendung nahtlos in jede beliebige Notion-Seite einfügen:</p>
+        <ol class="list-decimal pl-5 space-y-1.5 font-medium">
+          <li>Hoste diese HTML-Datei auf GitHub Pages, Vercel, Netlify oder Tiiny.host (kostenlos).</li>
+          <li>Öffne deine Notion-Seite und tippe <code class="px-1.5 py-0.5 bg-stone-100 dark:bg-stone-800 rounded font-mono text-xs">/embed</code>.</li>
+          <li>Füge die URL der gehosteten Datei ein und klicke auf <strong>"Embed link"</strong>.</li>
+          <li>Passe die Breite und Höhe des Blocks per Mauszeiger nach Belieben an.</li>
+        </ol>
+        <div class="p-3 bg-stone-100 dark:bg-stone-800 rounded-lg text-xs">
+          💡 <strong>Tipp:</strong> Die Anwendung unterstützt automatisch Notions Theme (Hell/Dunkel) und passt sich flexibel schmalen Spalten an.
+        </div>
+      </div>
+
+      <div class="pt-2 flex justify-end">
+        <button onclick="toggleModal('notion-modal', false)" class="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700">
+          Verstanden
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Audio synthesizer for educational effects (Web Audio API)
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playTone(freq, type = 'sine', duration = 0.15) {
+      try {
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {
+        // Audio policy fallback
+      }
+    }
+
+    function soundSuccess() {
+      playTone(523.25, 'triangle', 0.1);
+      setTimeout(() => playTone(659.25, 'triangle', 0.15), 100);
+      setTimeout(() => playTone(783.99, 'triangle', 0.25), 200);
+    }
+
+    function soundError() {
+      playTone(220, 'sawtooth', 0.25);
+    }
+
+    // Node data definition with rich educational info
+    const nodeDetails = {
+      bedrohung: {
+        title: "Bedrohung, Angriff",
+        tag: "Gefährdungsfaktor",
+        tagColor: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
+        desc: "Umstände, Ereignisse oder Personen mit dem Potenzial, einem System oder Asset Schaden zuzufügen (z. B. Denial-of-Service, Phishing, Ransomware-Banden, höhere Gewalt).",
+        relations: [
+          { type: "outgoing", verb: "nutzt aus", target: "Schwachstellen, Verwundbarkeiten" },
+          { type: "outgoing", verb: "erhöhen", target: "Risiken" },
+          { type: "incoming", verb: "geschützt durch", target: "Schutzkonzepte, Dienste, Protokolle" }
+        ],
+        example: "Phishing-Mails zielen auf unaufmerksame Mitarbeiter ab, um Zugangsdaten abzugreifen.",
+        activeEdges: ['edge-bedrohung-schwachstellen', 'edge-bedrohung-risiken', 'edge-schutzkonzepte-bedrohung']
+      },
+      schwachstellen: {
+        title: "Schwachstellen, Verwundbarkeiten",
+        tag: "Sicherheitslücke",
+        tagColor: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+        desc: "Mängel in der Software, Hardware, Konfiguration oder Organisation, die einen erfolgreichen Angriff erst ermöglichen (z. B. Zero-Day-Exploits, fehlende Multi-Faktor-Authentifizierung, ungeschultes Personal).",
+        relations: [
+          { type: "incoming", verb: "wird ausgenutzt von", target: "Bedrohung, Angriff" },
+          { type: "outgoing", verb: "bedrohen", target: "Assets" },
+          { type: "outgoing", verb: "erhöhen", target: "Risiken" }
+        ],
+        example: "Ein ungepatchter Webserver besitzt eine SQL-Injection-Lücke, die direkten Datenbankzugriff erlaubt.",
+        activeEdges: ['edge-bedrohung-schwachstellen', 'edge-schwachstellen-assets', 'edge-schwachstellen-risiken']
+      },
+      risiken: {
+        title: "Risiken",
+        tag: "Kalkulation & Impact",
+        tagColor: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
+        desc: "Die Eintrittswahrscheinlichkeit und die potenzielle Schadenshöhe eines Sicherheitsvorfalls. Risiko entsteht erst aus dem Zusammenspiel von Bedrohung, Schwachstelle und schützenswertem Wert.",
+        relations: [
+          { type: "incoming", verb: "erhöht durch", target: "Bedrohung & Schwachstellen" },
+          { type: "incoming", verb: "reduziert / geschützt durch", target: "Schutzkonzepte" },
+          { type: "outgoing", verb: "induzieren", target: "Schutzziele, Sicherheitspolicy" },
+          { type: "outgoing", verb: "bedrohen", target: "Werte, Auswirkungen" }
+        ],
+        example: "Das Risiko eines Totalausfalls des Online-Shops während des Black Friday verursacht Millionenverluste.",
+        activeEdges: ['edge-bedrohung-risiken', 'edge-schwachstellen-risiken', 'edge-schutzkonzepte-risiken', 'edge-risiken-schutzziele', 'edge-risiken-werte']
+      },
+      assets: {
+        title: "Assets (Vermögenswerte)",
+        tag: "Schutzgegenstand",
+        tagColor: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
+        desc: "Alle materiellen und immateriellen Güter einer Organisation, die einen Geschäftswert besitzen (z. B. Kundendatenbanken, Patente, IT-Infrastruktur, Reputation).",
+        relations: [
+          { type: "incoming", verb: "bedroht durch", target: "Schwachstellen" },
+          { type: "outgoing", verb: "haben", target: "Werte, Auswirkungen von Angriffen" }
+        ],
+        example: "Kundendaten unter DSGVO-Schutz. Verlust führt zu Bußgeldern und Vertrauensverlust.",
+        activeEdges: ['edge-schwachstellen-assets', 'edge-assets-werte']
+      },
+      schutzkonzepte: {
+        title: "Schutzkonzepte, Dienste, Protokolle",
+        tag: "Technische & Organisatorische Maßnahmen",
+        tagColor: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+        desc: "Konkrete Maßnahmen zur Reduzierung des Risikos und Abwehr von Angriffen (z. B. Firewalls, TLS-Verschlüsselung, IAM, Intrusion Detection, Backups, Notfallpläne).",
+        relations: [
+          { type: "incoming", verb: "erfüllt durch", target: "Schutzziele, Sicherheitspolicy" },
+          { type: "outgoing", verb: "schützen gegen", target: "Bedrohungen & Angriffe" },
+          { type: "outgoing", verb: "schützen gegen", target: "Risiken (Restrisikominimierung)" }
+        ],
+        example: "Einführung einer strikten 2-Faktor-Authentifizierung (2FA) und täglicher Immutable-Backups.",
+        activeEdges: ['edge-schutzziele-schutzkonzepte', 'edge-schutzkonzepte-bedrohung', 'edge-schutzkonzepte-risiken']
+      },
+      schutzziele: {
+        title: "Schutzziele, Sicherheitspolicy",
+        tag: "Strategie & Normen",
+        tagColor: "bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300",
+        desc: "Die grundlegenden Vorgaben wie Vertraulichkeit (Confidentiality), Integrität (Integrity) und Verfügbarkeit (Availability) sowie verbindliche Unternehmensrichtlinien.",
+        relations: [
+          { type: "incoming", verb: "induziert durch", target: "Risiken (Bedarf an Regeln)" },
+          { type: "outgoing", verb: "erfüllt durch", target: "Schutzkonzepte, Dienste, Protokolle" }
+        ],
+        example: "Policy Vorgabe: Alle Passwörter müssen mind. 14 Zeichen lang sein; Backups müssen verschlüsselt offsite lagern.",
+        activeEdges: ['edge-risiken-schutzziele', 'edge-schutzziele-schutzkonzepte']
+      },
+      werte: {
+        title: "Werte, Auswirkungen von Angriffen",
+        tag: "Schadenspotenzial",
+        tagColor: "bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300",
+        desc: "Der finanzielle, betriebliche und rechtliche Wert von Gütern sowie das Ausmaß von Schäden (z. B. Betriebsunterbrechung, DSGVO-Strafen, Lösegeldforderungen).",
+        relations: [
+          { type: "incoming", verb: "zugeordnet zu", target: "Assets (haben Werte)" },
+          { type: "incoming", verb: "bedroht durch", target: "Risiken (Realisierung führt zu Impact)" }
+        ],
+        example: "Lösegeldzahlung von 500.000 € plus 3 Tage Produktionsstillstand (ca. 1,2 Mio. € Schaden).",
+        activeEdges: ['edge-assets-werte', 'edge-risiken-werte']
+      }
+    };
+
+    let selectedNodeKey = null;
+
+    function resetGraphSelection() {
+      selectedNodeKey = null;
+      document.querySelectorAll('#concept-svg rect').forEach(r => {
+        r.classList.remove('pulse-glow');
+        r.setAttribute('stroke-width', '2');
+      });
+      document.querySelectorAll('.edge-line').forEach(line => {
+        line.setAttribute('stroke', '#9CA3AF');
+        line.setAttribute('stroke-width', '2');
+        line.setAttribute('marker-end', 'url(#arrow)');
+      });
+
+      // Reset inspector to default
+      document.getElementById('insp-tag').textContent = "Übersicht";
+      document.getElementById('insp-title').textContent = "IT-Sicherheits-Beziehungsmodell";
+      document.getElementById('insp-desc').textContent = "Wählen Sie einen Baustein (z. B. Bedrohung, Schwachstellen oder Risiken), um die konkreten Relationen und praxisnahe Erklärungen anzuzeigen.";
+      document.getElementById('insp-relations-list').innerHTML = `
+        <li class="flex items-start gap-2"><span class="text-blue-500">●</span> <span>Klicke auf eine Box, um ein- und ausgehende Relationen zu untersuchen.</span></li>
+      `;
+      document.getElementById('insp-example-text').textContent = "Ein Angreifer (Bedrohung) nutzt ein offenes Sicherheitsloch (Schwachstelle), um vertrauliche Kundendaten (Asset) zu entwenden.";
+    }
+
+    function selectNode(key) {
+      selectedNodeKey = key;
+      const data = nodeDetails[key];
+      if (!data) return;
+
+      playTone(440, 'sine', 0.08);
+
+      // Reset all edges
+      document.querySelectorAll('.edge-line').forEach(line => {
+        line.setAttribute('stroke', '#E5E7EB');
+        line.setAttribute('stroke-width', '1.5');
+        line.setAttribute('marker-end', 'url(#arrow)');
+      });
+
+      // Highlight active edges for this node
+      if (data.activeEdges) {
+        data.activeEdges.forEach(edgeId => {
+          const edgeEl = document.getElementById(edgeId);
+          if (edgeEl) {
+            edgeEl.setAttribute('stroke', '#2563EB');
+            edgeEl.setAttribute('stroke-width', '3');
+            edgeEl.setAttribute('marker-end', 'url(#arrow-active)');
+          }
+        });
+      }
+
+      // Highlight selected node box
+      document.querySelectorAll('#concept-svg rect').forEach(r => {
+        r.classList.remove('pulse-glow');
+        r.setAttribute('stroke-width', '2');
+      });
+      const nodeBox = document.querySelector(`#node-${key} rect`);
+      if (nodeBox) {
+        nodeBox.setAttribute('stroke-width', '3.5');
+        nodeBox.classList.add('pulse-glow');
+      }
+
+      // Update Inspector panel
+      const tagEl = document.getElementById('insp-tag');
+      tagEl.textContent = data.tag;
+      tagEl.className = `inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold ${data.tagColor} mb-3`;
+      document.getElementById('insp-title').textContent = data.title;
+      document.getElementById('insp-desc').textContent = data.desc;
+      document.getElementById('insp-example-text').textContent = data.example;
+
+      // Populate relations list
+      const listEl = document.getElementById('insp-relations-list');
+      listEl.innerHTML = '';
+      data.relations.forEach(rel => {
+        const li = document.createElement('li');
+        li.className = "flex items-start gap-2 p-1.5 rounded bg-stone-50 dark:bg-stone-800/60";
+        const icon = rel.type === 'outgoing' ? '➜' : '⬅';
+        li.innerHTML = `
+          <span class="text-blue-500 font-bold">${icon}</span>
+          <span><strong class="text-stone-800 dark:text-stone-200">${rel.verb}:</strong> ${rel.target}</span>
+        `;
+        listEl.appendChild(li);
+      });
+    }
+
+    function highlightFilter(type) {
+      document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active', 'bg-stone-200', 'dark:bg-stone-800', 'font-medium'));
+      event.target.classList.add('active', 'bg-stone-200', 'dark:bg-stone-800', 'font-medium');
+
+      if (type === 'all') {
+        resetGraphSelection();
+      } else if (type === 'angriff') {
+        selectNode('bedrohung');
+      } else if (type === 'abwehr') {
+        selectNode('schutzkonzepte');
+      }
+    }
+
+    function updateSimulation() {
+      const threat = parseInt(document.getElementById('slider-threat').value);
+      const vuln = parseInt(document.getElementById('slider-vuln').value);
+      const defense = parseInt(document.getElementById('slider-defense').value);
+
+      document.getElementById('threat-val').textContent = threat + '%';
+      document.getElementById('vuln-val').textContent = vuln + '%';
+      document.getElementById('defense-val').textContent = defense + '%';
+
+      // Formula: Base Risk = (Threat * Vuln) / 100
+      // Residual Risk = Base Risk * (1 - (Defense * 0.85) / 100)
+      const baseRisk = (threat * vuln) / 100;
+      const mitigatedRisk = Math.round(baseRisk * (1 - (defense * 0.85) / 100));
+
+      const indicator = document.getElementById('risk-indicator');
+      const label = document.getElementById('risk-label');
+      indicator.textContent = mitigatedRisk + '%';
+
+      if (mitigatedRisk > 65) {
+        indicator.className = "w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs bg-red-100 text-red-700 border-2 border-red-500";
+        label.textContent = "Kritisch";
+        label.className = "text-sm font-bold text-red-600";
+      } else if (mitigatedRisk > 35) {
+        indicator.className = "w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs bg-amber-100 text-amber-800 border-2 border-amber-500";
+        label.textContent = "Moderat";
+        label.className = "text-sm font-bold text-amber-600";
+      } else {
+        indicator.className = "w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs bg-emerald-100 text-emerald-800 border-2 border-emerald-500";
+        label.textContent = "Kontrolliert";
+        label.className = "text-sm font-bold text-emerald-600";
+      }
+    }
+
+    const quizQuestions = [
+      {
+        source: "Bedrohung, Angriff",
+        target: "Schwachstellen, Verwundbarkeiten",
+        correct: "nutzt aus",
+        options: ["nutzt aus", "erfüllt durch", "bedrohen", "induzieren"]
+      },
+      {
+        source: "Bedrohung & Schwachstellen",
+        target: "Risiken",
+        correct: "erhöhen",
+        options: ["erhöhen", "verhindern", "besitzen", "löschen"]
+      },
+      {
+        source: "Schwachstellen",
+        target: "Assets (Werte)",
+        correct: "bedrohen",
+        options: ["bedrohen", "erfüllen", "nutzt aus", "garantieren"]
+      },
+      {
+        source: "Assets",
+        target: "Werte & Auswirkungen",
+        correct: "haben",
+        options: ["haben", "bekämpfen", "eliminieren", "erhöhen"]
+      },
+      {
+        source: "Risiken",
+        target: "Schutzziele, Sicherheitspolicy",
+        correct: "induzieren",
+        options: ["induzieren", "verharmlosen", "blockieren", "speichern"]
+      },
+      {
+        source: "Schutzziele, Policy",
+        target: "Schutzkonzepte & Dienste",
+        correct: "erfüllt durch",
+        options: ["erfüllt durch", "bedrohen", "verursacht durch", "nutzt aus"]
+      },
+      {
+        source: "Schutzkonzepte & Dienste",
+        target: "Bedrohungen & Risiken",
+        correct: "schützen gegen",
+        options: ["schützen gegen", "induzieren", "provozieren", "erhöhen"]
+      }
+    ];
+
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let streak = 0;
+
+    function loadQuizQuestion() {
+      const q = quizQuestions[currentQuestionIndex];
+      document.getElementById('q-source').textContent = q.source;
+      document.getElementById('q-target').textContent = q.target;
+      document.getElementById('q-relation-slot').textContent = "? Welches Verb ?";
+      document.getElementById('quiz-level-indicator').textContent = `Frage ${currentQuestionIndex + 1} von ${quizQuestions.length}`;
+      document.getElementById('quiz-next-btn').classList.add('hidden');
+      
+      const feedback = document.getElementById('quiz-feedback');
+      feedback.classList.add('hidden');
+      feedback.textContent = "";
+
+      // Render shuffled options
+      const container = document.getElementById('quiz-options');
+      container.innerHTML = '';
+      
+      const shuffled = [...q.options].sort(() => Math.random() - 0.5);
+      shuffled.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.textContent = opt;
+        btn.className = "quiz-opt-btn p-3 rounded-lg border border-notion-border dark:border-notion-darkBorder text-stone-800 dark:text-stone-200 font-medium text-sm hover:bg-stone-100 dark:hover:bg-notion-darkHover transition-all text-left flex items-center justify-between";
+        btn.onclick = () => selectQuizAnswer(opt, btn, q.correct);
+        container.appendChild(btn);
+      });
+    }
+
+    function selectQuizAnswer(choice, btnElement, correct) {
+      // Disable all option buttons
+      document.querySelectorAll('.quiz-opt-btn').forEach(b => b.disabled = true);
+      const feedback = document.getElementById('quiz-feedback');
+      feedback.classList.remove('hidden');
+
+      if (choice === correct) {
+        soundSuccess();
+        score += 100 + (streak * 20);
+        streak += 1;
+        document.getElementById('q-relation-slot').textContent = correct;
+        document.getElementById('q-relation-slot').classList.remove('animate-pulse');
+        document.getElementById('q-relation-slot').classList.replace('text-blue-600', 'text-emerald-600');
+
+        btnElement.classList.add('bg-emerald-100', 'dark:bg-emerald-950/70', 'border-emerald-500', 'text-emerald-800');
+        feedback.className = "mt-4 p-3 rounded-lg text-xs sm:text-sm font-medium text-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 block text-center";
+        feedback.innerHTML = `🎉 <strong>Richtig!</strong> Die Relation lautet genau: <em>"${choice}"</em>.`;
+      } else {
+        soundError();
+        streak = 0;
+        btnElement.classList.add('bg-rose-100', 'dark:bg-rose-950/70', 'border-rose-500', 'text-rose-800');
+        feedback.className = "mt-4 p-3 rounded-lg text-xs sm:text-sm font-medium text-rose-800 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 block text-center";
+        feedback.innerHTML = `❌ <strong>Nicht ganz!</strong> Die richtige Verbindung im Modell ist: <strong>"${correct}"</strong>.`;
+      }
+
+      document.getElementById('game-score').textContent = score;
+      document.getElementById('game-streak').textContent = streak + " 🔥";
+      document.getElementById('quiz-next-btn').classList.remove('hidden');
+    }
+
+    function nextQuestion() {
+      if (currentQuestionIndex < quizQuestions.length - 1) {
+        currentQuestionIndex++;
+        loadQuizQuestion();
+      } else {
+        // Quiz completed
+        soundSuccess();
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+
+        const card = document.getElementById('quiz-card');
+        card.innerHTML = `
+          <div class="text-center py-6 space-y-4">
+            <div class="text-4xl">🏆</div>
+            <h3 class="text-xl font-bold">Quiz erfolgreich gemeistert!</h3>
+            <p class="text-sm text-stone-600 dark:text-stone-300">Du hast alle Beziehungen des IT-Sicherheitsmodells erfolgreich durchdrungen.</p>
+            <div class="text-2xl font-mono font-bold text-blue-600 dark:text-blue-400 py-2">
+              Endpunktzahl: ${score} Punkte
+            </div>
+            <div>
+              <button onclick="restartQuiz()" class="px-5 py-2.5 rounded-lg bg-blue-600 text-white font-medium text-sm hover:bg-blue-700 shadow-md">
+                Nochmal spielen ↺
+              </button>
+            </div>
+          </div>
+        `;
+        document.getElementById('quiz-next-btn').classList.add('hidden');
+      }
+    }
+
+    function restartQuiz() {
+      currentQuestionIndex = 0;
+      score = 0;
+      streak = 0;
+      document.getElementById('game-score').textContent = "0";
+      document.getElementById('game-streak').textContent = "0 🔥";
+      
+      // Reset card inner structure if game was completed
+      const card = document.getElementById('quiz-card');
+      card.innerHTML = `
+        <div class="flex justify-between items-center mb-4">
+          <span id="quiz-level-indicator" class="text-xs font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300">Frage 1 von 6</span>
+          <span id="quiz-badge" class="text-xs text-stone-400">Prüfe dein Modellwissen</span>
+        </div>
+        <div class="space-y-4">
+          <div class="p-4 rounded-lg bg-stone-50 dark:bg-notion-darkHover border border-notion-border dark:border-notion-darkBorder flex items-center justify-center gap-2 sm:gap-4 flex-wrap text-sm sm:text-base font-semibold">
+            <span id="q-source" class="px-3 py-1.5 bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 rounded shadow-sm">Bedrohung</span>
+            <span class="text-stone-400">──▶</span>
+            <span id="q-relation-slot" class="px-3 py-1.5 border-2 border-dashed border-blue-400 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300 rounded font-mono animate-pulse">? Welches Verb ?</span>
+            <span class="text-stone-400">──▶</span>
+            <span id="q-target" class="px-3 py-1.5 bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 rounded shadow-sm">Schwachstellen</span>
+          </div>
+          <p id="q-prompt" class="text-sm sm:text-base text-stone-700 dark:text-stone-200 text-center font-medium pt-2">
+            Welche definierte Relation verbindet diese beiden Bausteine im IT-Sicherheitsmodell?
+          </p>
+        </div>
+        <div id="quiz-options" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6"></div>
+        <div id="quiz-feedback" class="mt-4 p-3 rounded-lg text-xs sm:text-sm font-medium hidden text-center transition-all"></div>
+      `;
+      loadQuizQuestion();
+    }
+
+    function switchTab(tab) {
+      const graphTab = document.getElementById('tab-graph');
+      const gameTab = document.getElementById('tab-game');
+      const graphBtn = document.getElementById('tab-graph-btn');
+      const gameBtn = document.getElementById('tab-game-btn');
+
+      if (tab === 'graph') {
+        graphTab.classList.remove('hidden');
+        gameTab.classList.add('hidden');
+        graphBtn.className = "px-3 py-1.5 rounded-md transition-all bg-white dark:bg-notion-darkHover shadow-sm text-stone-900 dark:text-stone-100 font-semibold";
+        gameBtn.className = "px-3 py-1.5 rounded-md transition-all text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100";
+      } else {
+        graphTab.classList.add('hidden');
+        gameTab.classList.remove('hidden');
+        gameBtn.className = "px-3 py-1.5 rounded-md transition-all bg-white dark:bg-notion-darkHover shadow-sm text-stone-900 dark:text-stone-100 font-semibold";
+        graphBtn.className = "px-3 py-1.5 rounded-md transition-all text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100";
+        if (currentQuestionIndex === 0 && score === 0) {
+          loadQuizQuestion();
+        }
+      }
+    }
+
+    function toggleModal(modalId, show) {
+      const el = document.getElementById(modalId);
+      if (show) {
+        el.classList.remove('hidden');
+      } else {
+        el.classList.add('hidden');
+      }
+    }
+
+    function toggleDarkMode() {
+      document.documentElement.classList.toggle('dark');
+    }
+
+    // Initialize application on load
+    window.onload = function() {
+      // Respect user's system dark mode preference
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.classList.add('dark');
+      }
+      updateSimulation();
+      loadQuizQuestion();
+    };
+  </script>
+</body>
+</html>
